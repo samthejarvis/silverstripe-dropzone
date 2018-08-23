@@ -1,8 +1,7 @@
 ---
 Name: dropzone
-After: 'framework/*','cms/*'
 ---
-FileAttachmentField:
+UncleCheese\Dropzone\FileAttachmentField:
   default_config_path: 'javascript/default_config.json'
   icon_sizes: [16, 32, 48, 64, 128, 512]
   upgrade_images: true
@@ -22,4 +21,4 @@ FileAttachmentField:
     auto_queue: true
     add_remove_links: false    
 File:
-  extensions: [DropzoneFile]
+  extensions: [UncleCheese\Dropzone\DropzoneFile]

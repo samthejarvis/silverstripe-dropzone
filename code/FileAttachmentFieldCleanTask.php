@@ -1,12 +1,16 @@
 <?php
 
+namespace UncleCheese\Dropzone;
+use SilverStripe\Dev\BuildTask;
+use SilverStripe\ORM\DB;
+
 /**
  * Delete all files being tracked that weren't saved against anything.
  *
  * WARNING: You must call Form::saveInto or 'FileAttachmentFieldTrack::untrack' against IDs on custom-built forms or you
  *          -will- remove files accidentally with this task.
  *
- * @package  unclecheese/silverstripe-dropzone
+ * @package  unclecheese/dropzone
  */
 class FileAttachmentFieldCleanTask extends BuildTask {
     protected $title = "File Attachment Field - Clear all tracked files that are older than 1 hour";

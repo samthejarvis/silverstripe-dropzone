@@ -1,9 +1,14 @@
 <?php
 
+namespace UncleCheese\Dropzone;
+
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DataObjectInterface;
+
 /**
  * Track files as they're uploaded and remove when they've been saved.
  *
- * @package  unclecheese/silverstripe-dropzone
+ * @package  unclecheese/dropzone
  */
 class FileAttachmentFieldTrack extends DataObject {
     private static $db = array(

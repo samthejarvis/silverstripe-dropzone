@@ -15,8 +15,8 @@
                 <% if $CanUpload && $CanAttach %> <%t Dropzone.OR " or " %> <% end_if %>
                 <% if $CanAttach %>[<a class="dropzone-select-existing"><%t Dropzone.CHOOSEEXISTING "choose from existing files" %></a>]<% end_if %>
             <% end_if %>
-
         </p>
+
         <ul data-container data-attachments class="file-attachment-field-previews $View">
             <% if $AttachedFiles %>
                 <% loop $AttachedFiles %>
@@ -25,11 +25,10 @@
             <% end_if %>
         </ul>
 
-
-
         <template>
             $PreviewTemplate
         </template>
+
         <div class="attached-file-inputs" data-input-name="$InputName">
             <% if $AttachedFiles %>
                 <% loop $AttachedFiles %>

@@ -1,9 +1,33 @@
 <?php
 
+
+namespace UncleCheese\Dropzone;
+
+use SilverStripe\Admin\LeftAndMain;
+use SilverStripe\Assets\File;
+use SilverStripe\Assets\Image;
+use SilverStripe\Control\Controller;
+use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\HTTPResponse;
+use SilverStripe\Control\Session;
+use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\Convert;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\FileField;
+use SilverStripe\ORM\ArrayList;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\DataObjectInterface;
+use SilverStripe\ORM\ManyManyList;
+use SilverStripe\ORM\RelationList;
+use SilverStripe\ORM\SS_List;
+use SilverStripe\ORM\UnsavedRelationList;
+use SilverStripe\View\Requirements;
+use SilverStripe\View\ViewableData;
+
 /**
  * Defines the FileAttachementField form field type
  *
- * @package  unclecheese/silverstripe-dropzone
+ * @package  unclecheese/dropzone
  * @author  Uncle Cheese <unclecheese@leftandmain.com>
  */
 class FileAttachmentField extends FileField {
@@ -138,7 +162,7 @@ class FileAttachmentField extends FileField {
         $this->permissions['upload'] = true;
         $this->permissions['detach'] = true;
         $this->permissions['delete'] = function () use ($instance) {
-            return Injector::inst()->get('File')->canDelete() && $instance->isCMS();
+            return Injector::inst()->get(File::class)->canDelete() && $instance->isCMS();
         };
         $this->permissions['attach'] = function () use ($instance) {
             return $instance->isCMS();
@@ -156,7 +180,7 @@ class FileAttachmentField extends FileField {
      */
     public function FieldHolder($attributes = array ()) {
         $this->defineFieldHolderRequirements();
-        return parent::FieldHolder($attributes);
+        return $this->renderWith("dropzone/templates/forms/FileAttachmentField_holder.ss");
     }
 
     /**
@@ -168,7 +192,7 @@ class FileAttachmentField extends FileField {
      */
     public function SmallFieldHolder($attributes = array ()) {
         $this->defineFieldHolderRequirements();
-        return parent::SmallFieldHolder($attributes);
+        return $this->renderWith("dropzone/templates/forms/FileAttachmentField_holder_small.ss");
     }
 
     /**
@@ -365,14 +389,17 @@ class FileAttachmentField extends FileField {
      * @return void
      */
     public function addValidFileIDs(array $ids) {
-        $validIDs = Session::get('FileAttachmentField.validFileIDs');
+        $request = Injector::inst()->get(HTTPRequest::class);
+        $session = $request->getSession();
+
+        $validIDs = $session->get('FileAttachmentField.validFileIDs');
         if (!$validIDs) {
             $validIDs = array();
         }
         foreach ($ids as $id) {
             $validIDs[$id] = $id;
         }
-        Session::set('FileAttachmentField.validFileIDs', $validIDs);
+        $session->set('FileAttachmentField.validFileIDs', $validIDs);
     }
 
     /**
@@ -382,7 +409,10 @@ class FileAttachmentField extends FileField {
      * @return array
      */
     public function getValidFileIDs() {
-        $validIDs = Session::get('FileAttachmentField.validFileIDs');
+        $request = Injector::inst()->get(HTTPRequest::class);
+        $session = $request->getSession();
+
+        $validIDs = $session->get('FileAttachmentField.validFileIDs');
         if ($validIDs && is_array($validIDs)) {
             return $validIDs;
         }
@@ -399,6 +429,7 @@ class FileAttachmentField extends FileField {
 
         // Detect if files have been removed between AJAX uploads and form submission
         $value = $this->dataValue();
+
         if ($value) {
             $ids = (array)$value;
             $fileCount = (int)File::get()->filter(array('ID' => $ids))->count();
@@ -788,7 +819,7 @@ class FileAttachmentField extends FileField {
      * @return SS_HTTPResponse
      * @return SS_HTTPResponse
      */
-    public function upload(SS_HTTPRequest $request) {
+    public function upload(HTTPRequest $request) {
       
         $name = $this->getSetting('paramName');
         $files = (!empty($_FILES[$name]) ? $_FILES[$name] : array());
@@ -840,7 +871,7 @@ class FileAttachmentField extends FileField {
               return $this->httpError(400, $user_message);
             }
             if($relationClass = $this->getFileClass($tmpFile['name'])) {
-                $fileObject = Object::create($relationClass);
+                $fileObject = Injector::inst()->create($relationClass);
             }
 
             try {
@@ -879,7 +910,7 @@ class FileAttachmentField extends FileField {
         }
 
         $this->addValidFileIDs($ids);
-        return new SS_HTTPResponse(implode(',', $ids), 200);
+        return new HTTPResponse(implode(',', $ids), 200);
     }
 
 
@@ -887,12 +918,10 @@ class FileAttachmentField extends FileField {
      * @param SS_HTTPRequest $request
      * @return UploadField_ItemHandler
      */
-    public function handleSelect(SS_HTTPRequest $request) {
+    public function handleSelect(HTTPRequest $request) {
         if($this->isDisabled() || $this->isReadonly() || !$this->CanAttach()) {
             return $this->httpError(403);
         }
-
-        return FileAttachmentField_SelectHandler::create($this, $this->getFolderName());
     }
 
 
@@ -933,7 +962,7 @@ class FileAttachmentField extends FileField {
         }
 
         if($record = $this->getRecord()) {
-            return ($record->many_many($this->getName()) || $record->has_many($this->getName()));
+            return ($record->manyMany($this->getName()) || $record->hasMany($this->getName()));
         }
 
         return false;
@@ -1142,15 +1171,15 @@ class FileAttachmentField extends FileField {
 
         if($record) {
     	    $class = $record->getRelationClass($name);
-        	if(!$class) $class = "File";
+        	if(!$class) $class = File::class;
     	}
 
         if($filename) {
-            if($defaultClass == "Image" &&
+            if($defaultClass == Image::class &&
                $this->config()->upgrade_images &&
                !Injector::inst()->get($class) instanceof Image
             ) {
-                $class = "Image";
+                $class = Image::class;
             }
         }
 
@@ -1166,7 +1195,7 @@ class FileAttachmentField extends FileField {
             if (($record = $this->form->getRecord()) && ($record instanceof DataObject)) {
                 $this->record = $record;
             }
-            elseif (($controller = $this->form->Controller())
+            elseif (($controller = $this->form->getController())
                 && $controller->hasMethod('data')
                 && ($record = $controller->data())
                 && ($record instanceof DataObject)
@@ -1298,78 +1327,4 @@ class FileAttachmentField extends FileField {
 
         return Convert::array2json($data);
     }
-}
-
-class FileAttachmentField_SelectHandler extends UploadField_SelectHandler {
-
-    private static $allowed_actions = array (
-        'filesbyid',
-    );
-
-    /**
-     * @param $folderID The ID of the folder to display.
-     * @return FormField
-     */
-    protected function getListField($folderID) {
-        // Generate the folder selection field.
-        $folderField = new TreeDropdownField('ParentID', _t('HtmlEditorField.FOLDER', 'Folder'), 'Folder');
-        $folderField->setValue($folderID);
-
-        // Generate the file list field.
-        $config = GridFieldConfig::create();
-        $config->addComponent(new GridFieldSortableHeader());
-        $config->addComponent(new GridFieldFilterHeader());
-        $config->addComponent($columns = new GridFieldDataColumns());
-        $columns->setDisplayFields(array(
-            'StripThumbnail' => '',
-            'Name' => 'Name',
-            'Title' => 'Title'
-        ));
-        $config->addComponent(new GridFieldPaginator(8));
-
-        // If relation is to be autoset, we need to make sure we only list compatible objects.
-        $baseClass = $this->parent->getFileClass();
-
-        // Create the data source for the list of files within the current directory.
-        $files = DataList::create($baseClass)->filter('ParentID', $folderID);
-
-        $fileField = new GridField('Files', false, $files, $config);
-        $fileField->setAttribute('data-selectable', true);
-        if($this->parent->IsMultiple()) {
-            $fileField->setAttribute('data-multiselect', true);
-        }
-
-        $selectComposite = new CompositeField(
-            $folderField,
-            $fileField
-        );
-
-        return $selectComposite;
-    }
-
-
-    public function filesbyid(SS_HTTPRequest $r) {
-        $ids = $r->getVar('ids');
-        $files = File::get()->byIDs(explode(',',$ids));
-
-        $validIDs = array();
-        $json = array ();
-        foreach($files as $file) {
-            $template = new SSViewer('FileAttachmentField_attachments');
-            $html = $template->process(ArrayData::create(array(
-                'File' => $file,
-                'Scope' => $this->parent
-            )));
-
-            $validIDs[$file->ID] = $file->ID;
-            $json[] = array (
-                'id' => $file->ID,
-                'html' => $html->forTemplate()
-            );
-        }
-
-        $this->parent->addValidFileIDs($validIDs);
-        return Convert::array2json($json);
-    }
-
 }
